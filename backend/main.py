@@ -26,7 +26,8 @@ app = FastAPI(title="Vision RAG")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://vision-rag-frontend.onrender.com"],#["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
