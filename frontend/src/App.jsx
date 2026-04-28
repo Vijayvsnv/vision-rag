@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 
 const API = 'https://vision-rag-17tq.onrender.com'
 // const API = 'http://127.0.0.1:8000'
+// const API = 'http://localhost:8000'
 const uid = () => Math.random().toString(36).slice(2, 10)
 
 // ─── Noise / grid background ──────────────────────────────
