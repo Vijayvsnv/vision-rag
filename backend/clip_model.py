@@ -1,17 +1,41 @@
 # clip_model.py
 
-from sentence_transformers import SentenceTransformer
+# from sentence_transformers import SentenceTransformer
+# from PIL import Image
+
+# # ek baar load hoga jab app start hogi
+# # model = SentenceTransformer("clip-ViT-B-32")
+# model = SentenceTransformer("all-MiniLM-L6-v2")
+
+# def get_image_vector(image_path: str) -> list:
+#     """Image file path lo, CLIP se vector banao"""
+#     image = Image.open(image_path)
+#     vector = model.encode(image)
+#     return vector.tolist()
+
+
+from sympy import python
+
+
+import torch
+import open_clip
 from PIL import Image
 
-# ek baar load hoga jab app start hogi
-# model = SentenceTransformer("clip-ViT-B-32")
-model = SentenceTransformer("all-MiniLM-L6-v2")
+# lightweight OpenCLIP model
+model, _, preprocess = open_clip.create_model_and_transforms(
+    'ViT-B-32',
+    pretrained='laion2b_s34b_b79k',
+    device='cpu'
+)
 
 def get_image_vector(image_path: str) -> list:
-    """Image file path lo, CLIP se vector banao"""
-    image = Image.open(image_path)
-    vector = model.encode(image)
-    return vector.tolist()
+    image = preprocess(Image.open(image_path)).unsqueeze(0)
+
+    with torch.no_grad():
+        image_features = model.encode_image(image)
+
+    return image_features[0].cpu().numpy().tolist()
+
 
 
 # def get_text_vector(text: str) -> list:
