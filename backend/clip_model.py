@@ -4,7 +4,8 @@ from sentence_transformers import SentenceTransformer
 from PIL import Image
 
 # ek baar load hoga jab app start hogi
-model = SentenceTransformer("clip-ViT-B-32")
+# model = SentenceTransformer("clip-ViT-B-32")
+model = SentenceTransformer("all-MiniLM-L6-v2")
 
 def get_image_vector(image_path: str) -> list:
     """Image file path lo, CLIP se vector banao"""
