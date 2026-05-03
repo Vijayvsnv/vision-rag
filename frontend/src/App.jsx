@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 
-const API = 'https://vision-rag-17tq.onrender.com'
-// const API = 'http://127.0.0.1:8000'
+// const API = 'https://vision-rag-17tq.onrender.com'
+const API = 'http://127.0.0.1:8000'
 // const API = 'http://localhost:8000'
 const uid = () => Math.random().toString(36).slice(2, 10)
 
@@ -19,7 +19,6 @@ function BgCanvas() {
       const step = 48
       for (let x = 0; x < el.width; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, el.height); ctx.stroke() }
       for (let y = 0; y < el.height; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(el.width, y); ctx.stroke() }
-      // glowing orbs
       const orbs = [
         { x: el.width * 0.15, y: el.height * 0.2, r: 280, c: 'rgba(94,255,160,0.04)' },
         { x: el.width * 0.85, y: el.height * 0.75, r: 220, c: 'rgba(123,97,255,0.05)' },
@@ -90,7 +89,6 @@ function ImageCard({ img }) {
       onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(94,255,160,0.35)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)' }}
     >
-      {/* image */}
       <div style={{ position: 'relative', width: '100%', height: 130, background: 'var(--bg4)', overflow: 'hidden' }}>
         {!loaded && !err && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -111,7 +109,6 @@ function ImageCard({ img }) {
           />
         )}
       </div>
-      {/* meta */}
       <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
         <p style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {img.description}
@@ -139,7 +136,6 @@ function ChatMessage({ msg }) {
       alignItems: 'flex-start', gap: 10,
       animation: 'fadeUp 0.25s ease both'
     }}>
-      {/* avatar */}
       <div style={{
         width: 30, height: 30, borderRadius: 8, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -152,7 +148,6 @@ function ChatMessage({ msg }) {
       </div>
 
       <div style={{ maxWidth: '74%', display: 'flex', flexDirection: 'column', gap: 10, alignItems: isUser ? 'flex-end' : 'flex-start' }}>
-        {/* bubble */}
         <div style={{
           padding: '11px 15px', borderRadius: 12, fontSize: 14, lineHeight: 1.65,
           background: isUser ? 'rgba(123,97,255,0.1)' : 'var(--bg3)',
@@ -164,7 +159,6 @@ function ChatMessage({ msg }) {
           {msg.typing ? <TypingDots /> : msg.content}
         </div>
 
-        {/* image grid */}
         {msg.images && msg.images.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             {msg.images.map((img, i) => <ImageCard key={i} img={img} />)}
@@ -175,8 +169,8 @@ function ChatMessage({ msg }) {
   )
 }
 
-// ─── Sidebar upload panel ─────────────────────────────────
-function Sidebar({ onUpload, uploading, lastResult, imageCount }) {
+// ─── Upload Modal ─────────────────────────────────────────
+function UploadModal({ onClose, onUpload, uploading, lastResult }) {
   const [tab, setTab] = useState('file')
   const [url, setUrl] = useState('')
   const [file, setFile] = useState(null)
@@ -199,164 +193,168 @@ function Sidebar({ onUpload, uploading, lastResult, imageCount }) {
 
   const canSubmit = (tab === 'url' && url.trim()) || (tab === 'file' && file)
 
+  const handleBackdrop = e => { if (e.target === e.currentTarget) onClose() }
+
+  useEffect(() => {
+    const handler = e => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
   return (
-    <aside style={{
-      width: 290, minWidth: 290, height: '100vh',
-      background: 'var(--bg2)', borderRight: '1px solid var(--border)',
-      display: 'flex', flexDirection: 'column', padding: '22px 18px', gap: 16,
-      position: 'relative', zIndex: 1, overflowY: 'auto'
-    }}>
-      {/* Brand */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-        <div style={{
-          width: 34, height: 34, borderRadius: 9,
-          background: 'var(--glow)', border: '1px solid rgba(94,255,160,0.25)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 16, color: 'var(--accent)', flexShrink: 0,
-          animation: 'pulse-glow 3s ease infinite'
-        }}>⬡</div>
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 15, letterSpacing: '-0.4px', color: 'var(--text)' }}>VisionRAG</div>
-          <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.12em' }}>IMAGE INTELLIGENCE</div>
-        </div>
-      </div>
-
-      <div style={{ height: 1, background: 'var(--border)' }} />
-
-      {/* Stats row */}
-      <div style={{ display: 'flex', gap: 8 }}>
-        {[
-          { label: 'IMAGES', val: imageCount },
-          { label: 'BACKEND', val: 'LIVE' }
-        ].map(s => (
-          <div key={s.label} style={{
-            flex: 1, background: 'var(--bg3)', border: '1px solid var(--border)',
-            borderRadius: 8, padding: '8px 10px', textAlign: 'center'
-          }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: s.label === 'BACKEND' ? 'var(--success)' : 'var(--text)' }}>{s.val}</div>
-            <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{s.label}</div>
+    <div
+      onClick={handleBackdrop}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 100,
+        background: 'rgba(5,7,13,0.75)', backdropFilter: 'blur(10px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        animation: 'fadeUp 0.15s ease both'
+      }}
+    >
+      <div style={{
+        width: 420, maxWidth: 'calc(100vw - 40px)',
+        background: 'var(--bg2)', border: '1px solid var(--border)',
+        borderRadius: 18, padding: '24px 24px 20px',
+        display: 'flex', flexDirection: 'column', gap: 14,
+        animation: 'fadeUp 0.22s ease both',
+        boxShadow: '0 0 80px rgba(94,255,160,0.05), 0 32px 64px rgba(0,0,0,0.6)'
+      }}>
+        {/* Modal header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.3px', color: 'var(--text)' }}>Ingest Image</div>
+            <div style={{ fontSize: 9, color: 'var(--text3)', marginTop: 2, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>ADD TO VISUAL KNOWLEDGE BASE</div>
           </div>
-        ))}
-      </div>
+          <button
+            onClick={onClose}
+            style={{
+              width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)',
+              background: 'var(--bg3)', color: 'var(--text3)', fontSize: 16, lineHeight: 1,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'all 0.2s', cursor: 'pointer'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,77,109,0.4)'; e.currentTarget.style.color = '#ff4d6d' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text3)' }}
+          >×</button>
+        </div>
 
-      {/* Section */}
-      <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.15em' }}>INGEST IMAGE</div>
+        <div style={{ height: 1, background: 'var(--border)' }} />
 
-      {/* Tab switcher */}
-      <div style={{ display: 'flex', background: 'var(--bg3)', borderRadius: 8, border: '1px solid var(--border)', padding: 3, gap: 3 }}>
-        {['file', 'url'].map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            flex: 1, padding: '6px 0', borderRadius: 6, border: 'none',
-            background: tab === t ? 'var(--glow)' : 'transparent',
-            color: tab === t ? 'var(--accent)' : 'var(--text3)',
-            fontSize: 11, fontWeight: 600, letterSpacing: '0.05em',
-            transition: 'all 0.2s',
-            outline: tab === t ? '1px solid rgba(94,255,160,0.2)' : 'none'
-          }}>
-            {t === 'file' ? '📁 FILE' : '🔗 URL'}
-          </button>
-        ))}
-      </div>
+        {/* Tab switcher */}
+        <div style={{ display: 'flex', background: 'var(--bg3)', borderRadius: 8, border: '1px solid var(--border)', padding: 3, gap: 3 }}>
+          {['file', 'url'].map(t => (
+            <button key={t} onClick={() => setTab(t)} style={{
+              flex: 1, padding: '6px 0', borderRadius: 6, border: 'none',
+              background: tab === t ? 'var(--glow)' : 'transparent',
+              color: tab === t ? 'var(--accent)' : 'var(--text3)',
+              fontSize: 11, fontWeight: 600, letterSpacing: '0.05em',
+              transition: 'all 0.2s',
+              outline: tab === t ? '1px solid rgba(94,255,160,0.2)' : 'none',
+              cursor: 'pointer'
+            }}>
+              {t === 'file' ? '📁 FILE' : '🔗 URL'}
+            </button>
+          ))}
+        </div>
 
-      {/* Input area */}
-      {tab === 'url' ? (
-        <textarea
-          value={url}
-          onChange={e => setUrl(e.target.value)}
-          placeholder="https://example.com/photo.jpg"
-          rows={3}
-          style={{
-            background: 'var(--bg3)', border: '1px solid var(--border)',
-            borderRadius: 8, color: 'var(--text)', fontSize: 11,
-            padding: '10px 12px', resize: 'none', outline: 'none',
-            fontFamily: 'var(--font-mono)', lineHeight: 1.5,
-            transition: 'border-color 0.2s'
-          }}
-          onFocus={e => e.target.style.borderColor = 'rgba(94,255,160,0.4)'}
-          onBlur={e => e.target.style.borderColor = 'var(--border)'}
-        />
-      ) : (
-        <>
+        {/* Input area */}
+        {tab === 'url' ? (
+          <textarea
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            placeholder="https://example.com/photo.jpg"
+            rows={3}
+            style={{
+              background: 'var(--bg3)', border: '1px solid var(--border)',
+              borderRadius: 8, color: 'var(--text)', fontSize: 11,
+              padding: '10px 12px', resize: 'none', outline: 'none',
+              fontFamily: 'var(--font-mono)', lineHeight: 1.5,
+              transition: 'border-color 0.2s'
+            }}
+            onFocus={e => e.target.style.borderColor = 'rgba(94,255,160,0.4)'}
+            onBlur={e => e.target.style.borderColor = 'var(--border)'}
+          />
+        ) : (
           <div
             onClick={() => fileRef.current.click()}
             style={{
               background: 'var(--bg3)', border: `1px dashed ${file ? 'rgba(94,255,160,0.4)' : 'var(--border2)'}`,
-              borderRadius: 8, padding: '16px', textAlign: 'center', cursor: 'pointer',
+              borderRadius: 8, padding: '22px 16px', textAlign: 'center', cursor: 'pointer',
               transition: 'border-color 0.2s, background 0.2s',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8
             }}
             onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(94,255,160,0.35)'}
             onMouseLeave={e => !file && (e.currentTarget.style.borderColor = 'var(--border2)')}
           >
             <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
             {preview ? (
-              <img src={preview} alt="" style={{ width: '100%', maxHeight: 100, objectFit: 'cover', borderRadius: 6 }} />
+              <img src={preview} alt="" style={{ width: '100%', maxHeight: 130, objectFit: 'cover', borderRadius: 6 }} />
             ) : (
               <>
-                <span style={{ fontSize: 22 }}>🖼️</span>
-                <span style={{ fontSize: 11, color: 'var(--text3)' }}>Click to choose image</span>
+                <span style={{ fontSize: 26 }}>🖼️</span>
+                <span style={{ fontSize: 12, color: 'var(--text3)' }}>Click to choose image</span>
+                <span style={{ fontSize: 10, color: 'var(--text3)', fontFamily: 'var(--font-mono)' }}>JPG · PNG · WEBP</span>
               </>
             )}
-            {file && <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>📎 {file.name.slice(0, 24)}</span>}
+            {file && <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>📎 {file.name.slice(0, 30)}</span>}
           </div>
-        </>
-      )}
+        )}
 
-      {/* Upload button */}
-      <button
-        onClick={handleSubmit}
-        disabled={!canSubmit || uploading}
-        style={{
-          background: canSubmit && !uploading
-            ? 'linear-gradient(135deg, var(--accent) 0%, #00b87a 100%)'
-            : 'var(--bg4)',
-          border: 'none', borderRadius: 8, padding: '11px',
-          color: canSubmit && !uploading ? '#05070d' : 'var(--text3)',
-          fontWeight: 700, fontSize: 12, letterSpacing: '0.08em',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          transition: 'all 0.25s', opacity: uploading ? 0.7 : 1
-        }}
-      >
-        {uploading ? <><Spin size={14} color="#05070d" /> PROCESSING...</> : 'INGEST IMAGE'}
-      </button>
+        {/* Upload button */}
+        <button
+          onClick={handleSubmit}
+          disabled={!canSubmit || uploading}
+          style={{
+            background: canSubmit && !uploading
+              ? 'linear-gradient(135deg, var(--accent) 0%, #00b87a 100%)'
+              : 'var(--bg4)',
+            border: 'none', borderRadius: 8, padding: '12px',
+            color: canSubmit && !uploading ? '#05070d' : 'var(--text3)',
+            fontWeight: 700, fontSize: 12, letterSpacing: '0.08em',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            transition: 'all 0.25s', opacity: uploading ? 0.7 : 1,
+            cursor: canSubmit && !uploading ? 'pointer' : 'not-allowed'
+          }}
+        >
+          {uploading ? <><Spin size={14} color="#05070d" /> PROCESSING...</> : 'INGEST IMAGE'}
+        </button>
 
-      {/* Last result */}
-      {lastResult && (
-        <div style={{
-          background: 'var(--bg3)', border: `1px solid ${lastResult.error ? 'rgba(255,77,109,0.35)' : 'rgba(94,255,160,0.25)'}`,
-          borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 8,
-          animation: 'fadeUp 0.3s ease both'
-        }}>
-          {lastResult.error ? (
-            <div style={{ color: 'var(--error)', fontSize: 12 }}>✗ {lastResult.error}</div>
-          ) : (
-            <>
-              <img src={`${API}${lastResult.image_url}`} alt=""
-                style={{ width: '100%', borderRadius: 6, maxHeight: 100, objectFit: 'cover' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ color: 'var(--success)', fontSize: 12 }}>✓ Ingested</span>
-              </div>
-              <p style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.5 }}>
-                {lastResult.description?.slice(0, 100)}...
-              </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                {(lastResult.tags || []).slice(0, 4).map(t => <Tag key={t}>{t}</Tag>)}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      <div style={{ flex: 1 }} />
-
-      {/* Footer */}
-      <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: 'var(--font-mono)', lineHeight: 1.7 }}>
-        <div>STACK: FastAPI · ChromaDB</div>
-        <div>CLIP clip-ViT-B-32 · GPT-4o-mini</div>
+        {/* Result */}
+        {lastResult && (
+          <div style={{
+            background: 'var(--bg3)', border: `1px solid ${lastResult.error ? 'rgba(255,77,109,0.35)' : 'rgba(94,255,160,0.25)'}`,
+            borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 8,
+            animation: 'fadeUp 0.3s ease both'
+          }}>
+            {lastResult.error ? (
+              <div style={{ color: 'var(--error)', fontSize: 12 }}>✗ {lastResult.error}</div>
+            ) : (
+              <>
+                <img src={`${API}${lastResult.image_url}`} alt=""
+                  style={{ width: '100%', borderRadius: 6, maxHeight: 90, objectFit: 'cover' }} />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--success)', fontSize: 12 }}>✓ Ingested successfully</span>
+                  <button onClick={onClose} style={{
+                    fontSize: 10, color: 'var(--accent)', background: 'none', border: 'none',
+                    fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', cursor: 'pointer',
+                    textDecoration: 'underline', textUnderlineOffset: 3
+                  }}>DONE →</button>
+                </div>
+                <p style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.5 }}>
+                  {lastResult.description?.slice(0, 110)}...
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  {(lastResult.tags || []).slice(0, 4).map(t => <Tag key={t}>{t}</Tag>)}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
-    </aside>
+    </div>
   )
 }
+
 
 // ─── Suggested prompts ────────────────────────────────────
 const SUGGESTIONS = [
@@ -369,7 +367,7 @@ const SUGGESTIONS = [
 export default function App() {
   const [messages, setMessages] = useState([{
     id: uid(), role: 'assistant',
-    content: 'Hey! I\'m VisionRAG — your visual memory assistant.\n\nIngest images using the panel on the left, then ask me anything about them. I\'ll search through the visual knowledge base and answer you.\n\nTry: "show me all images" or "do you have any image of X?"',
+    content: 'Hey! I\'m VisionRAG — your visual memory assistant.\n\nClick "+ Upload" in the top-right to add images, then ask me anything about them.\n\nTry: "show me all images" or "do you have any image of X?"',
     images: []
   }])
   const [input, setInput] = useState('')
@@ -377,15 +375,14 @@ export default function App() {
   const [uploading, setUploading] = useState(false)
   const [lastResult, setLastResult] = useState(null)
   const [imageCount, setImageCount] = useState(0)
+  const [showUploadModal, setShowUploadModal] = useState(false)
   const bottomRef = useRef()
   const inputRef = useRef()
 
-  // auto scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // fetch image count on load
   useEffect(() => {
     fetch(`${API}/images-list`)
       .then(r => r.json())
@@ -462,31 +459,45 @@ export default function App() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
   }
 
+  const openUpload = () => { setLastResult(null); setShowUploadModal(true) }
+
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', position: 'relative' }}>
       <BgCanvas />
-      <Sidebar onUpload={handleUpload} uploading={uploading} lastResult={lastResult} imageCount={imageCount} />
 
-      {/* Chat Panel */}
+      {/* Full-screen chat */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', position: 'relative', zIndex: 1, overflow: 'hidden' }}>
 
-        {/* Header */}
+        {/* Minimal top bar — upload button only */}
         <div style={{
-          padding: '16px 28px', borderBottom: '1px solid var(--border)',
-          background: 'rgba(5,7,13,0.85)', backdropFilter: 'blur(12px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+          padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+          borderBottom: '1px solid var(--border)',
+          background: 'rgba(5,7,13,0.85)', backdropFilter: 'blur(12px)'
         }}>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.3px' }}>Visual Search Chat</div>
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Ask about your ingested images</div>
-          </div>
-          <div style={{
-            fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--accent)',
-            background: 'var(--glow)', border: '1px solid rgba(94,255,160,0.2)',
-            borderRadius: 20, padding: '4px 12px', letterSpacing: '0.05em'
-          }}>
-            gpt-4o-mini · clip-ViT-B-32
-          </div>
+          <button
+            onClick={openUpload}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '7px 15px', borderRadius: 8,
+              border: '1px solid rgba(94,255,160,0.3)',
+              background: 'var(--glow)', color: 'var(--accent)',
+              fontSize: 12, fontWeight: 700, letterSpacing: '0.06em',
+              transition: 'all 0.2s', cursor: 'pointer'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(94,255,160,0.18)'
+              e.currentTarget.style.borderColor = 'rgba(94,255,160,0.5)'
+              e.currentTarget.style.boxShadow = '0 0 16px rgba(94,255,160,0.12)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'var(--glow)'
+              e.currentTarget.style.borderColor = 'rgba(94,255,160,0.3)'
+              e.currentTarget.style.boxShadow = 'none'
+            }}
+          >
+            <span style={{ fontSize: 15, lineHeight: 1, marginTop: -1 }}>+</span>
+            Upload
+          </button>
         </div>
 
         {/* Messages */}
@@ -502,7 +513,7 @@ export default function App() {
               <button key={s} onClick={() => sendMessage(s)} style={{
                 background: 'var(--bg3)', border: '1px solid var(--border)',
                 borderRadius: 20, padding: '6px 14px', color: 'var(--text2)',
-                fontSize: 12, transition: 'all 0.2s'
+                fontSize: 12, transition: 'all 0.2s', cursor: 'pointer'
               }}
                 onMouseEnter={e => { e.target.style.borderColor = 'rgba(94,255,160,0.3)'; e.target.style.color = 'var(--accent)' }}
                 onMouseLeave={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.color = 'var(--text2)' }}
@@ -551,6 +562,16 @@ export default function App() {
           </button>
         </div>
       </main>
+
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <UploadModal
+          onClose={() => setShowUploadModal(false)}
+          onUpload={handleUpload}
+          uploading={uploading}
+          lastResult={lastResult}
+        />
+      )}
     </div>
   )
 }

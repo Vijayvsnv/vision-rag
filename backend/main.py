@@ -13,7 +13,7 @@ from clip_model import get_image_vector, get_text_vector
 
 from vlm import get_image_description
 from image_store import save_from_url, save_from_upload
-from vector_store import save_image_record, search_images
+from vector_store import save_image_record, search_images, get_all_images
 
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -169,20 +169,16 @@ async def chat(request: ChatRequest):
     """User ka sawaal lo, similar images dhundo, GPT-4o se answer do"""
     
     # Step 1: saari images lo DB se — GPT khud decide karega kaunsi relevant hai
-    from vector_store import collection as db_collection
-    all_data = db_collection.get()
-    seen = set()
-    all_images = []
-    for metadata in all_data["metadatas"]:
-        if metadata["image_id"] not in seen:
-            seen.add(metadata["image_id"])
-            all_images.append({
-                "image_id": metadata["image_id"],
-                "image_url": metadata["image_url"],
-                "description": metadata["description"],
-                "tags": metadata["tags"],
-                "score": 1.0
-            })
+    all_images = [
+        {
+            "image_id": meta["image_id"],
+            "image_url": meta["image_url"],
+            "description": meta["description"],
+            "tags": meta["tags"],
+            "score": 1.0
+        }
+        for meta in get_all_images()
+    ]
 
     # Step 2: context banao GPT ke liye — saari images
     context = ""
@@ -250,14 +246,5 @@ Rules:
 @app.get("/images-list")
 async def images_list():
     """Saari ingested images ki list"""
-    from vector_store import collection
-    results = collection.get()
-
-    seen = set()
-    images = []
-    for metadata in results["metadatas"]:
-        if metadata["image_id"] not in seen:
-            seen.add(metadata["image_id"])
-            images.append(metadata)
-
+    images = get_all_images()
     return {"images": images, "total": len(images)}

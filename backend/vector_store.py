@@ -1,168 +1,31 @@
-# # vector_store.py
-
-# import chromadb
-# from datetime import datetime
-
-# # local persistent ChromaDB
-# chroma_client = chromadb.PersistentClient(path="./chroma_db")
-# # collection = chroma_client.get_or_create_collection(name="vision_rag")
-# collection = chroma_client.get_or_create_collection(
-#     name="vision_rag",
-#     metadata={"hnsw:space": "cosine"}
-# )
-
-# def save_image_record(
-#     image_id: str,
-#     image_path: str,
-#     filename: str,
-#     description: str,
-#     tags: list,
-#     image_vector: list,
-#     text_vector: list
-# ):
-#     """ image  record save in chroma db"""
-    
-#     # image vector save karo
-#     collection.add(
-#         ids=[f"{image_id}_image"],
-#         embeddings=[image_vector],
-#         metadatas=[{
-#             "type": "image",
-#             "image_id": image_id,
-#             "filename": filename,
-#             "image_url": f"/images/{filename}",
-#             "description": description,
-#             "tags": ", ".join(tags),
-#             "created_at": datetime.now().isoformat()
-#         }],
-#         documents=[description]
-#     )
-    
-#     # text/description vector save karo
-#     collection.add(
-#         ids=[f"{image_id}_text"],
-#         embeddings=[text_vector],
-#         metadatas=[{
-#             "type": "text",
-#             "image_id": image_id,
-#             "filename": filename,
-#             "image_url": f"/images/{filename}",
-#             "description": description,
-#             "tags": ", ".join(tags),
-#             "created_at": datetime.now().isoformat()
-#         }],
-#         documents=[description]
-#     )
-
-# # def search_images(query_vector: list, top_k: int = 3) -> list:
-# #     """Query vector se similar images dhundo"""
-# #     results = collection.query(
-# #         query_embeddings=[query_vector],
-# #         n_results=top_k * 4
-
-# #     )
-    
-# #     seen = set()
-# #     images = []
-    
-# #     for i, metadata in enumerate(results["metadatas"][0]):
-# #         image_id = metadata["image_id"]
-# #         if image_id not in seen:
-# #             seen.add(image_id)
-# #             raw = float(results["distances"][0][i])
-# #             images.append({
-# #                 "image_id": image_id,
-# #                 "image_url": metadata["image_url"],
-# #                 "description": metadata["description"],
-# #                 "tags": metadata["tags"],
-# #                 "score": round(1 / (1 + raw), 3)
-# #             })
-    
-# #     return images
-
-# def search_images(query_vector: list, top_k: int = 3, query_text: str = "") -> list:
-#     """Vector search + keyword search hybrid"""
-    
-#     # Step 1: vector similarity search
-#     results = collection.query(
-#         query_embeddings=[query_vector],
-#         n_results=top_k * 4
-#     )
-    
-#     seen = set()
-#     images = []
-    
-#     for i, metadata in enumerate(results["metadatas"][0]):
-#         image_id = metadata["image_id"]
-#         if image_id not in seen:
-#             seen.add(image_id)
-#             raw = float(results["distances"][0][i])
-#             images.append({
-#                 "image_id": image_id,
-#                 "image_url": metadata["image_url"],
-#                 "description": metadata["description"],
-#                 "tags": metadata["tags"],
-#                 "score": round(1 / (1 + raw), 3)
-#             })
-    
-#     # Step 2: keyword search — query ke words description mein dhundo
-#     if query_text:
-#         all_records = collection.get()
-#         keywords = query_text.lower().split()
-#         keyword_seen = set(x["image_id"] for x in images)
-        
-#         for metadata in all_records["metadatas"]:
-#             image_id = metadata["image_id"]
-#             if image_id in keyword_seen:
-#                 continue
-#             desc_lower = metadata["description"].lower()
-#             tags_lower = metadata["tags"].lower()
-#             if any(kw in desc_lower or kw in tags_lower for kw in keywords):
-#                 keyword_seen.add(image_id)
-#                 images.append({
-#                     "image_id": image_id,
-#                     "image_url": metadata["image_url"],
-#                     "description": metadata["description"],
-#                     "tags": metadata["tags"],
-#                     "score": 0.5
-#                 })
-#     filtered = [img for img in images if img["score"] >= 0.007]
-#     return filtered[:top_k] if filtered else images[:1]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-import chromadb
+import os
+import time
 from datetime import datetime
+from dotenv import load_dotenv
+from pinecone import Pinecone, ServerlessSpec
 
-chroma_client = chromadb.PersistentClient(path="./chroma_db")
+load_dotenv()
 
-# image vectors ke liye — CLIP 512-dim
-image_collection = chroma_client.get_or_create_collection(
-    name="vision_rag_images",
-    metadata={"hnsw:space": "cosine"}
-)
+pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 
-# text vectors ke liye — OpenAI 1536-dim
-text_collection = chroma_client.get_or_create_collection(
-    name="vision_rag_text",
-    metadata={"hnsw:space": "cosine"}
-)
 
-# backward compatibility ke liye
-collection = text_collection
+def _get_or_create_index(name: str, dimension: int):
+    existing = [idx.name for idx in pc.list_indexes()]
+    if name not in existing:
+        pc.create_index(
+            name=name,
+            dimension=dimension,
+            metric="cosine",
+            spec=ServerlessSpec(cloud="aws", region="us-east-1")
+        )
+        while not pc.describe_index(name).status["ready"]:
+            time.sleep(1)
+    return pc.Index(name)
+
+
+image_index = _get_or_create_index("vision-rag-images", 512)
+text_index = _get_or_create_index("vision-rag-text", 512)
+
 
 def save_image_record(
     image_id: str,
@@ -173,59 +36,72 @@ def save_image_record(
     image_vector: list,
     text_vector: list
 ):
-    # image vector — CLIP collection mein
-    image_collection.add(
-        ids=[f"{image_id}_image"],
-        embeddings=[image_vector],
-        metadatas=[{
-            "type": "image",
-            "image_id": image_id,
-            "filename": filename,
-            "image_url": f"/images/{filename}",
-            "description": description,
-            "tags": ", ".join(tags),
-            "created_at": datetime.now().isoformat()
-        }],
-        documents=[description]
-    )
+    metadata = {
+        "image_id": image_id,
+        "filename": filename,
+        "image_url": f"/images/{filename}",
+        "description": description,
+        "tags": ", ".join(tags),
+        "created_at": datetime.now().isoformat()
+    }
 
-    # text vector — OpenAI collection mein
-    text_collection.add(
-        ids=[f"{image_id}_text"],
-        embeddings=[text_vector],
-        metadatas=[{
-            "type": "text",
-            "image_id": image_id,
-            "filename": filename,
-            "image_url": f"/images/{filename}",
-            "description": description,
-            "tags": ", ".join(tags),
-            "created_at": datetime.now().isoformat()
-        }],
-        documents=[description]
-    )
+    image_index.upsert(vectors=[{
+        "id": f"{image_id}_image",
+        "values": image_vector,
+        "metadata": {**metadata, "type": "image"}
+    }])
+
+    text_index.upsert(vectors=[{
+        "id": f"{image_id}_text",
+        "values": text_vector,
+        "metadata": {**metadata, "type": "text"}
+    }])
+
+
+def get_all_images() -> list:
+    """Saare images ki metadata list — /chat aur /images-list ke liye"""
+    all_ids = []
+    for ids_batch in text_index.list():
+        all_ids.extend(ids_batch)
+
+    if not all_ids:
+        return []
+
+    fetch_result = text_index.fetch(ids=all_ids)
+    seen = set()
+    images = []
+
+    for vec in fetch_result.vectors.values():
+        meta = vec.metadata
+        image_id = meta.get("image_id")
+        if image_id and image_id not in seen:
+            seen.add(image_id)
+            images.append(meta)
+
+    return images
+
 
 def search_images(query_vector: list, top_k: int = 3, query_text: str = "") -> list:
-    # text_collection mein search karo — OpenAI vectors
-    results = text_collection.query(
-        query_embeddings=[query_vector],
-        n_results=top_k * 4
+    results = text_index.query(
+        vector=query_vector,
+        top_k=top_k * 4,
+        include_metadata=True
     )
 
     seen = set()
     images = []
 
-    for i, metadata in enumerate(results["metadatas"][0]):
-        image_id = metadata["image_id"]
-        if image_id not in seen:
+    for match in results["matches"]:
+        meta = match["metadata"]
+        image_id = meta.get("image_id")
+        if image_id and image_id not in seen:
             seen.add(image_id)
-            raw = float(results["distances"][0][i])
             images.append({
                 "image_id": image_id,
-                "image_url": metadata["image_url"],
-                "description": metadata["description"],
-                "tags": metadata["tags"],
-                "score": round(1 / (1 + raw), 3)
+                "image_url": meta["image_url"],
+                "description": meta["description"],
+                "tags": meta["tags"],
+                "score": round(float(match["score"]), 3)
             })
 
     return images[:top_k]
