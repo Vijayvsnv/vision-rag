@@ -367,7 +367,7 @@ const SUGGESTIONS = [
 export default function App() {
   const [messages, setMessages] = useState([{
     id: uid(), role: 'assistant',
-    content: 'Hey! I\'m VisionRAG — your visual memory assistant.\n\nClick "+ Upload" in the top-right to add images, then ask me anything about them.\n\nTry: "show me all images" or "do you have any image of X?"',
+    content: 'Ready.\n\nWhat do you want to find?',
     images: []
   }])
   const [input, setInput] = useState('')
