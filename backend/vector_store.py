@@ -92,6 +92,9 @@ def search_images(query_vector: list, top_k: int = 3, query_text: str = "") -> l
     images = []
 
     for match in results["matches"]:
+        score = round(float(match["score"]), 3)
+        if score < 0.85:
+            continue
         meta = match["metadata"]
         image_id = meta.get("image_id")
         if image_id and image_id not in seen:
@@ -101,7 +104,7 @@ def search_images(query_vector: list, top_k: int = 3, query_text: str = "") -> l
                 "image_url": meta["image_url"],
                 "description": meta["description"],
                 "tags": meta["tags"],
-                "score": round(float(match["score"]), 3)
+                "score": score
             })
 
     return images[:top_k]
