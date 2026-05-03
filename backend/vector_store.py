@@ -39,7 +39,7 @@ def save_image_record(
     metadata = {
         "image_id": image_id,
         "filename": filename,
-        "image_url": f"/images/{filename}",
+        "image_url": filename,
         "description": description,
         "tags": ", ".join(tags),
         "created_at": datetime.now().isoformat()

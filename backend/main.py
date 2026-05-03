@@ -3,7 +3,6 @@
 import uuid
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional, List
 
@@ -33,9 +32,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# image_store folder ko static files ki tarah serve karo
-app.mount("/images", StaticFiles(directory="image_store"), name="images")
-
 # ─────────────────────────────────────────
 # SCHEMAS
 # ─────────────────────────────────────────
@@ -57,38 +53,37 @@ async def ingest(
     if not image_url and not file:
         raise HTTPException(400, "image_url ya file dono mein se ek do")
     
-    # Step 1: image save karo
+    # Step 1: image save karo (Cloudinary pe)
     if image_url and image_url.strip():
-
-        image_path, filename = await save_from_url(image_url)
+        image_path, cloudinary_url = await save_from_url(image_url)
     else:
-        image_path, filename = await save_from_upload(file)
-    
+        image_path, cloudinary_url = await save_from_upload(file)
+
     # Step 2: GPT-4o Vision se description lo
     result = get_image_description(image_path)
     description = result["description"]
     tags = result["tags"]
-    
+
     # Step 3: CLIP se vectors banao
     image_vector = get_image_vector(image_path)
     text_vector = get_text_vector(description)
-    
-    # Step 4: ChromaDB mein save karo
+
+    # Step 4: Pinecone mein save karo
     image_id = str(uuid.uuid4())
     save_image_record(
         image_id=image_id,
         image_path=image_path,
-        filename=filename,
+        filename=cloudinary_url,
         description=description,
         tags=tags,
         image_vector=image_vector,
         text_vector=text_vector
     )
-    
+
     return {
         "success": True,
         "image_id": image_id,
-        "image_url": f"/images/{filename}",
+        "image_url": cloudinary_url,
         "description": description,
         "tags": tags
     }

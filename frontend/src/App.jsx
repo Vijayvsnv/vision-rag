@@ -101,7 +101,7 @@ function ImageCard({ img }) {
           </div>
         ) : (
           <img
-            src={`${API}${img.image_url}`}
+            src={img.image_url.startsWith('http') ? img.image_url : `${API}${img.image_url}`}
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: loaded ? 'block' : 'none' }}
             onLoad={() => setLoaded(true)}
@@ -330,7 +330,7 @@ function UploadModal({ onClose, onUpload, uploading, lastResult }) {
               <div style={{ color: 'var(--error)', fontSize: 12 }}>✗ {lastResult.error}</div>
             ) : (
               <>
-                <img src={`${API}${lastResult.image_url}`} alt=""
+                <img src={lastResult.image_url.startsWith('http') ? lastResult.image_url : `${API}${lastResult.image_url}`} alt=""
                   style={{ width: '100%', borderRadius: 6, maxHeight: 90, objectFit: 'cover' }} />
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--success)', fontSize: 12 }}>✓ Ingested successfully</span>
