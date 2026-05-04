@@ -59,7 +59,7 @@ def save_image_record(
 
 
 def get_all_images() -> list:
-    """Saare images ki metadata list — /chat aur /images-list ke liye"""
+    """Returns metadata for all stored images — used by /chat and /images-list"""
     all_ids = []
     for ids_batch in text_index.list():
         all_ids.extend(ids_batch)

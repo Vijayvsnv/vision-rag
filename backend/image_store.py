@@ -22,7 +22,7 @@ TEMP_DIR.mkdir(exist_ok=True)
 
 
 async def save_from_url(url: str) -> tuple[str, str]:
-    """URL se image download karo, Cloudinary pe upload karo"""
+    """Download image from URL, upload to Cloudinary, return (local_path, cloudinary_url)."""
     async with httpx.AsyncClient(timeout=30) as http:
         response = await http.get(url)
         if response.status_code != 200:
@@ -44,7 +44,7 @@ async def save_from_url(url: str) -> tuple[str, str]:
 
 
 async def save_from_upload(file: UploadFile) -> tuple[str, str]:
-    """Uploaded file Cloudinary pe save karo"""
+    """Save uploaded file locally, upload to Cloudinary, return (local_path, cloudinary_url)."""
     ext = file.filename.split(".")[-1].lower()
     if ext not in ("jpeg", "jpg", "png", "webp"):
         ext = "jpg"

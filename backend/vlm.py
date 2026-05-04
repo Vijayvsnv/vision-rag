@@ -1,6 +1,7 @@
 # vlm.py
 
 import base64
+import json
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
@@ -9,12 +10,11 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def get_image_description(image_path: str) -> dict:
-    """Image path lo, GPT-4o Vision se description + tags lo"""
-    
-    # image ko base64 mein convert karo
+    """Takes an image path and returns description + tags via GPT-4o Vision."""
+
     with open(image_path, "rb") as f:
         base64_image = base64.b64encode(f.read()).decode("utf-8")
-    
+
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -41,9 +41,8 @@ def get_image_description(image_path: str) -> dict:
         ],
         max_tokens=500
     )
-    
-    import json
+
     result = response.choices[0].message.content
-    # clean karo agar ```json wrapper ho
+    # strip ```json wrapper if present
     result = result.strip().removeprefix("```json").removesuffix("```").strip()
     return json.loads(result)

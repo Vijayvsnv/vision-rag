@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 from clip_model import get_image_vector, get_text_vector
-from vlm import get_image_description
 from image_store import save_from_url, save_from_upload
 from vector_store import save_image_record, search_images, get_all_images
 
@@ -42,19 +41,22 @@ class ChatRequest(BaseModel):
 @app.post("/ingest")
 async def ingest(
     image_url: Optional[str] = Form(None),
-    file: Optional[UploadFile] = File(None)
+    file: Optional[UploadFile] = File(None),
+    description: str = Form(...),
+    tags: Optional[str] = Form(None)
 ):
     if not image_url and not file:
-        raise HTTPException(400, "image_url ya file dono mein se ek do")
+        raise HTTPException(400, "Provide either image_url or a file")
+
+    if not description.strip():
+        raise HTTPException(400, "description is required")
 
     if image_url and image_url.strip():
         image_path, cloudinary_url = await save_from_url(image_url)
     else:
         image_path, cloudinary_url = await save_from_upload(file)
 
-    result = get_image_description(image_path)
-    description = result["description"]
-    tags = result["tags"]
+    tags_list = [t.strip() for t in tags.split(",")] if tags and tags.strip() else []
 
     image_vector = get_image_vector(image_path)
     text_vector = get_text_vector(description)
@@ -65,7 +67,7 @@ async def ingest(
         image_path=image_path,
         filename=cloudinary_url,
         description=description,
-        tags=tags,
+        tags=tags_list,
         image_vector=image_vector,
         text_vector=text_vector
     )
@@ -75,36 +77,36 @@ async def ingest(
         "image_id": image_id,
         "image_url": cloudinary_url,
         "description": description,
-        "tags": tags
+        "tags": tags_list
     }
 
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
-    # Step 1: search query banao — "show this" jaise contextual queries ke liye history se topic lo
+    # Step 1: build search query — for vague queries like "show this", use topic from history
     search_query = request.message
     msg_lower = request.message.lower()
     vague_words = ["this", "it", "that", "show this", "show it", "can you show", "show me this"]
     is_vague = any(w in msg_lower for w in vague_words) and len(request.message.split()) <= 6
     if is_vague and request.history:
-        # last assistant message se topic extract karo
+        # extract topic from last assistant message
         for msg in reversed(request.history):
             if msg["role"] == "assistant":
                 search_query = msg["content"][:200]
                 break
 
-    # Step 2: vector search — relevant images dhundo
+    # Step 2: vector search — find relevant images
     query_vector = get_text_vector(search_query)
     matched_images = search_images(query_vector, top_k=3)
 
-    # Step 3: saari images ka context GPT ke liye
+    # Step 3: build context from all images for GPT
     all_images = get_all_images()
     context = ""
     for meta in all_images:
         context += f"- Description: {meta['description']}\n"
         context += f"  Tags: {meta['tags']}\n\n"
 
-    # Step 4: GPT-4o se answer lo
+    # Step 4: get answer from GPT-4o-mini
     messages = [
         {
             "role": "system",
@@ -134,9 +136,9 @@ Rules:
         max_tokens=150
     )
 
-    # Step 5: show_images decide karo
-    show_keywords = ["show", "give", "display", "dikhao", "pic", "picture", "image", "photo", "dekha", "de do"]
-    hide_keywords = ["have you", "do you", "koi hai", "any image", "hai kya", "you seen", "seen anywhere", "anywhere"]
+    # Step 5: decide whether to show images based on keywords
+    show_keywords = ["show", "give", "display", "pic", "picture", "image", "photo"]
+    hide_keywords = ["have you", "do you", "any image", "you seen", "seen anywhere", "anywhere"]
     show_images = any(w in msg_lower for w in show_keywords) and not any(w in msg_lower for w in hide_keywords)
 
     return {

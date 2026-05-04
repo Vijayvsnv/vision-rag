@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 
 const API = 'https://vision-rag-17tq.onrender.com'
-// const API = 'http://127.0.0.1:8000'
+// const API = 'http://127.0.0.1:8001'
 // const API = 'http://localhost:8000'
 const uid = () => Math.random().toString(36).slice(2, 10)
 
@@ -175,6 +175,7 @@ function UploadModal({ onClose, onUpload, uploading, lastResult }) {
   const [url, setUrl] = useState('')
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
+  const [description, setDescription] = useState('')
   const fileRef = useRef()
 
   const handleFile = e => {
@@ -187,11 +188,12 @@ function UploadModal({ onClose, onUpload, uploading, lastResult }) {
   }
 
   const handleSubmit = () => {
-    if (tab === 'url' && url.trim()) onUpload({ url: url.trim() })
-    if (tab === 'file' && file) onUpload({ file })
+    if (tab === 'url' && url.trim()) onUpload({ url: url.trim(), description: description.trim() })
+    if (tab === 'file' && file) onUpload({ file, description: description.trim() })
   }
 
-  const canSubmit = (tab === 'url' && url.trim()) || (tab === 'file' && file)
+  const hasImage = (tab === 'url' && url.trim()) || (tab === 'file' && file)
+  const canSubmit = hasImage && description.trim()
 
   const handleBackdrop = e => { if (e.target === e.currentTarget) onClose() }
 
@@ -300,6 +302,26 @@ function UploadModal({ onClose, onUpload, uploading, lastResult }) {
           </div>
         )}
 
+        {/* Description input */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <span style={{ fontSize: 10, color: 'var(--text3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em' }}>DESCRIPTION *</span>
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            placeholder="Describe this image..."
+            rows={3}
+            style={{
+              background: 'var(--bg3)', border: '1px solid var(--border)',
+              borderRadius: 8, color: 'var(--text)', fontSize: 12,
+              padding: '10px 12px', resize: 'none', outline: 'none',
+              lineHeight: 1.5, transition: 'border-color 0.2s',
+              fontFamily: 'var(--font-body)'
+            }}
+            onFocus={e => e.target.style.borderColor = 'rgba(94,255,160,0.4)'}
+            onBlur={e => e.target.style.borderColor = 'var(--border)'}
+          />
+        </div>
+
         {/* Upload button */}
         <button
           onClick={handleSubmit}
@@ -390,13 +412,14 @@ export default function App() {
       .catch(() => {})
   }, [])
 
-  const handleUpload = async ({ url, file }) => {
+  const handleUpload = async ({ url, file, description }) => {
     setUploading(true)
     setLastResult(null)
     try {
       const fd = new FormData()
       if (url) fd.append('image_url', url)
       if (file) fd.append('file', file)
+      fd.append('description', description)
 
       const res = await fetch(`${API}/ingest`, { method: 'POST', body: fd })
       const data = await res.json()
