@@ -34,6 +34,14 @@ class ChatRequest(BaseModel):
     message: str
     history: List[dict] = []
 
+class IngestItem(BaseModel):
+    image_url: str
+    description: str
+    tags: Optional[str] = None
+
+class BatchIngestRequest(BaseModel):
+    images: List[IngestItem]
+
 # ─────────────────────────────────────────
 # ROUTES
 # ─────────────────────────────────────────
@@ -78,6 +86,52 @@ async def ingest(
         "image_url": cloudinary_url,
         "description": description,
         "tags": tags_list
+    }
+
+
+@app.post("/ingest/batch")
+async def ingest_batch(request: BatchIngestRequest):
+    if not request.images:
+        raise HTTPException(400, "images list is empty")
+
+    results = []
+    errors = []
+
+    for item in request.images:
+        try:
+            image_path, cloudinary_url = await save_from_url(item.image_url)
+            tags_list = [t.strip() for t in item.tags.split(",")] if item.tags and item.tags.strip() else []
+            image_vector = get_image_vector(image_path)
+            text_vector = get_text_vector(item.description)
+            image_id = str(uuid.uuid4())
+            save_image_record(
+                image_id=image_id,
+                image_path=image_path,
+                filename=cloudinary_url,
+                description=item.description,
+                tags=tags_list,
+                image_vector=image_vector,
+                text_vector=text_vector
+            )
+            results.append({
+                "success": True,
+                "image_id": image_id,
+                "image_url": cloudinary_url,
+                "description": item.description,
+                "tags": tags_list
+            })
+        except Exception as e:
+            errors.append({
+                "image_url": item.image_url,
+                "error": str(e)
+            })
+
+    return {
+        "total": len(request.images),
+        "success_count": len(results),
+        "error_count": len(errors),
+        "results": results,
+        "errors": errors
     }
 
 
