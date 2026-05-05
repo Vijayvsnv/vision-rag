@@ -135,53 +135,112 @@ async def ingest_batch(request: BatchIngestRequest):
     }
 
 
+FILLER_WORDS = {
+    "show", "give", "display", "me", "the", "a", "an", "this", "that",
+    "it", "image", "photo", "picture", "pic", "find", "get", "can",
+    "you", "please", "if", "exist", "exists", "same", "also", "is",
+    "are", "was", "were", "be", "been", "have", "has", "had", "do",
+    "does", "did", "will", "would", "could", "should", "yes", "no",
+    "there", "here", "all", "any", "some", "i", "my", "your", "and",
+    "or", "but", "of", "in", "on", "at", "to", "for", "with", "carefully",
+    "okay", "ok", "what", "where", "when", "who", "which", "how",
+    "describe", "tell", "explain", "see", "look", "hey", "hi", "hello",
+    "name", "related", "about", "regarding", "any", "person",
+    "object", "like", "description", "thing", "things", "stuff", "content",
+    "many", "peoples", "much", "several", "few", "number", "count",
+    # Hindi/Hinglish filler
+    "de", "dedo", "dikhao", "dikha", "kya", "hai", "nahi", "haan",
+    "iska", "uski", "unka", "yahi", "wahi", "woh", "vo", "toh", "bhi",
+    "karo", "kar", "koi", "naam", "ka", "wala", "batao", "bata"
+}
+
+# Words that indicate user wants to SEE something from prior context
+SHOW_WORDS = {"show", "give", "display", "de", "dedo", "dikhao", "dikha"}
+REFERENCE_WORDS = {"this", "same", "it", "iska", "uski", "unka", "yahi", "wahi", "woh", "vo"}
+
+def extract_query_terms(message: str) -> str:
+    words = message.lower().split()
+    return " ".join(w.strip(".,?!") for w in words if w.strip(".,?!") not in FILLER_WORDS)
+
+def is_show_from_context(message: str) -> bool:
+    words = {w.strip(".,?!'\"") for w in message.lower().split()}
+    has_show = bool(words & SHOW_WORDS)
+    has_reference = bool(words & REFERENCE_WORDS)
+    extracted = extract_query_terms(message)
+    # treat as context-based if: (show + reference) OR (show intent + no new meaningful terms)
+    return has_show and (has_reference or not extracted)
+
+def get_topic_from_history(history: list) -> str:
+    recent = history[-6:] if len(history) > 6 else history
+    # prefer user messages with 2+ meaningful words (single generic words like "object" are skipped)
+    for msg in reversed(recent):
+        if msg["role"] == "user":
+            terms = extract_query_terms(msg["content"])
+            if terms and len(terms.split()) >= 2:
+                return terms
+    # fallback: accept even 1-word terms
+    for msg in reversed(recent):
+        if msg["role"] == "user":
+            terms = extract_query_terms(msg["content"])
+            if terms:
+                return terms
+    # last resort: assistant first sentence
+    for msg in reversed(recent):
+        if msg["role"] == "assistant":
+            terms = extract_query_terms(msg["content"].split(".")[0])
+            if terms:
+                return terms
+    return ""
+
+
 @app.post("/chat")
 async def chat(request: ChatRequest):
-    # Step 1: build search query — for vague queries like "show this", use topic from history
-    search_query = request.message
     msg_lower = request.message.lower()
-    vague_words = ["this", "it", "that", "show this", "show it", "can you show", "show me this"]
-    is_vague = any(w in msg_lower for w in vague_words) and len(request.message.split()) <= 6
-    if is_vague and request.history:
-        # extract topic from last assistant message
-        for msg in reversed(request.history):
-            if msg["role"] == "assistant":
-                search_query = msg["content"][:200]
-                break
 
-    # Step 2: vector search — find relevant images
-    query_vector = get_text_vector(search_query)
-    matched_images = search_images(query_vector, top_k=3)
+    # Step 1: vector search on user's message — CLIP handles semantic matching
+    query_vector = get_text_vector(request.message)
+    relevant_images = search_images(query_vector, top_k=5, threshold=0.60)
 
-    # Step 3: build context from all images for GPT
+    # Step 2: get all images + build GPT context
     all_images = get_all_images()
-    context = ""
-    for meta in all_images:
-        context += f"- Description: {meta['description']}\n"
-        context += f"  Tags: {meta['tags']}\n\n"
 
-    # Step 4: get answer from GPT-4o-mini
+    # highlight top relevant images so GPT doesn't have to scan all descriptions
+    relevant_context = ""
+    if relevant_images:
+        relevant_context = "Most relevant images found by search:\n"
+        for img in relevant_images:
+            relevant_context += f"- {img['description']} | Tags: {img['tags']}\n"
+        relevant_context += "\n"
+
+    full_context = "All images in database:\n"
+    for meta in all_images:
+        full_context += f"- {meta['description']} | Tags: {meta['tags']}\n"
+
+    # Step 3: GPT answers using both relevant + full context
+    is_show_request = bool({w.strip(".,?!'\"") for w in msg_lower.split()} & SHOW_WORDS)
+
     messages = [
         {
             "role": "system",
-            "content": f"""You are an image search assistant. Answer ONLY based on the images listed below.
+            "content": f"""You are an image search assistant. Always respond in English only.
 
-Available images in the database:
-{context}
+{relevant_context}
+{full_context}
 
 Rules:
-- Read ALL descriptions carefully and answer truthfully
-- If any description matches the user query — say YES it exists and describe it
-- Do NOT include any URLs in your answer
-- Keep answers under 3 lines
-- NEVER say you cannot show images — the system handles image display automatically
-- NEVER say an image doesn't exist if its description matches the query"""
+- Existence question → answer YES or NO + one brief phrase only
+- Describe request → describe the image in detail
+- Show/display request → reply with 1 short confirmation line, then on a NEW LINE write exactly: [SEARCH: <2-3 word description of the image to find>]
+- Use semantic understanding — "country flag" matches "American flag", "person" matches "man/woman" etc.
+- ALWAYS respond in English
+- Do NOT include any URLs
+- NEVER say an image doesn't exist if the relevant images above match the query
+- NEVER say you cannot show images"""
         }
     ]
 
     for msg in request.history:
         messages.append(msg)
-
     messages.append({"role": "user", "content": request.message})
 
     response = client.chat.completions.create(
@@ -190,14 +249,40 @@ Rules:
         max_tokens=150
     )
 
-    # Step 5: decide whether to show images based on keywords
-    show_keywords = ["show", "give", "display", "pic", "picture", "image", "photo"]
-    hide_keywords = ["have you", "do you", "any image", "you seen", "seen anywhere", "anywhere"]
-    show_images = any(w in msg_lower for w in show_keywords) and not any(w in msg_lower for w in hide_keywords)
+    raw_answer = response.choices[0].message.content
+
+    # Step 4: parse GPT's search term for show requests
+    search_query = None
+    answer = raw_answer
+    if "[SEARCH:" in raw_answer:
+        parts = raw_answer.split("[SEARCH:")
+        answer = parts[0].strip()
+        search_query = parts[1].split("]")[0].strip()
+
+    # Step 5: vector search using GPT's extracted term + keyword fallback
+    matched_images = []
+    if search_query:
+        sq_vector = get_text_vector(search_query)
+        matched_images = search_images(sq_vector, top_k=3, threshold=0.75)
+
+        if not matched_images:
+            sq_words = {w for w in search_query.lower().split() if len(w) > 3}
+            for meta in all_images:
+                combined = (meta.get("description", "") + " " + meta.get("tags", "")).lower()
+                if sum(1 for w in sq_words if w in combined) >= 2:
+                    matched_images.append({
+                        "image_id": meta.get("image_id", ""),
+                        "image_url": meta.get("image_url", ""),
+                        "description": meta.get("description", ""),
+                        "tags": meta.get("tags", ""),
+                        "score": 0.0
+                    })
+                if len(matched_images) >= 3:
+                    break
 
     return {
-        "answer": response.choices[0].message.content,
-        "matched_images": matched_images if show_images else []
+        "answer": answer,
+        "matched_images": matched_images
     }
 
 
