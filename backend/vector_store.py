@@ -60,19 +60,20 @@ def save_image_record(
 
 def get_all_images() -> list:
     """Returns metadata for all stored images — used by /chat and /images-list"""
-    all_ids = []
-    for ids_batch in text_index.list():
-        all_ids.extend(ids_batch)
+    import math
+    dummy_vector = [1.0 / math.sqrt(512)] * 512
 
-    if not all_ids:
-        return []
+    results = text_index.query(
+        vector=dummy_vector,
+        top_k=1000,
+        include_metadata=True
+    )
 
-    fetch_result = text_index.fetch(ids=all_ids)
     seen = set()
     images = []
 
-    for vec in fetch_result.vectors.values():
-        meta = vec.metadata
+    for match in results["matches"]:
+        meta = match["metadata"]
         image_id = meta.get("image_id")
         if image_id and image_id not in seen:
             seen.add(image_id)
@@ -81,7 +82,7 @@ def get_all_images() -> list:
     return images
 
 
-def search_images(query_vector: list, top_k: int = 3, query_text: str = "") -> list:
+def search_images(query_vector: list, top_k: int = 3, threshold: float = 0.85) -> list:
     results = text_index.query(
         vector=query_vector,
         top_k=top_k * 4,
@@ -93,7 +94,7 @@ def search_images(query_vector: list, top_k: int = 3, query_text: str = "") -> l
 
     for match in results["matches"]:
         score = round(float(match["score"]), 3)
-        if score < 0.85:
+        if score < threshold:
             continue
         meta = match["metadata"]
         image_id = meta.get("image_id")
