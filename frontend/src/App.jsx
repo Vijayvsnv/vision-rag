@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 
-// const API = 'https://vision-rag-backend-t58m.onrender.com'
-const API = 'http://127.0.0.1:8000'
+const API = 'https://vision-rag-backend-t58m.onrender.com'
+// const API = 'http://127.0.0.1:8000'
 const uid = () => Math.random().toString(36).slice(2, 10)
 
 function Tag({ children }) {

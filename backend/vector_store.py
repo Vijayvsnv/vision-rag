@@ -9,7 +9,7 @@ load_dotenv()
 
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 
-INDEX_NAME = "vision-rag-images"
+INDEX_NAME = "vision-rag-text-index"
 DIMENSION = 3072
 
 
