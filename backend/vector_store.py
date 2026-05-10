@@ -1,4 +1,5 @@
 import os
+import math
 import time
 from datetime import datetime
 from dotenv import load_dotenv
@@ -7,6 +8,9 @@ from pinecone import Pinecone, ServerlessSpec
 load_dotenv()
 
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+
+INDEX_NAME = "vision-rag-images"
+DIMENSION = 3072
 
 
 def _get_or_create_index(name: str, dimension: int):
@@ -23,89 +27,62 @@ def _get_or_create_index(name: str, dimension: int):
     return pc.Index(name)
 
 
-image_index = _get_or_create_index("vision-rag-images", 512)
-text_index = _get_or_create_index("vision-rag-text", 512)
+index = _get_or_create_index(INDEX_NAME, DIMENSION)
 
 
 def save_image_record(
     image_id: str,
-    image_path: str,
-    filename: str,
+    image_url: str,
     description: str,
-    tags: list,
-    image_vector: list,
-    text_vector: list
+    vector: list,
+    notes: str = None,
 ):
     metadata = {
         "image_id": image_id,
-        "filename": filename,
-        "image_url": filename,
+        "image_url": image_url,
         "description": description,
-        "tags": ", ".join(tags),
+        "notes": notes or "",
         "created_at": datetime.now().isoformat()
     }
 
-    image_index.upsert(vectors=[{
-        "id": f"{image_id}_image",
-        "values": image_vector,
-        "metadata": {**metadata, "type": "image"}
-    }])
-
-    text_index.upsert(vectors=[{
-        "id": f"{image_id}_text",
-        "values": text_vector,
-        "metadata": {**metadata, "type": "text"}
+    index.upsert(vectors=[{
+        "id": image_id,
+        "values": vector,
+        "metadata": metadata
     }])
 
 
 def get_all_images() -> list:
-    """Returns metadata for all stored images — used by /chat and /images-list"""
-    import math
-    dummy_vector = [1.0 / math.sqrt(512)] * 512
+    dummy_vector = [1.0 / math.sqrt(DIMENSION)] * DIMENSION
 
-    results = text_index.query(
+    results = index.query(
         vector=dummy_vector,
         top_k=1000,
         include_metadata=True
     )
 
-    seen = set()
-    images = []
-
-    for match in results["matches"]:
-        meta = match["metadata"]
-        image_id = meta.get("image_id")
-        if image_id and image_id not in seen:
-            seen.add(image_id)
-            images.append(meta)
-
-    return images
+    return [match["metadata"] for match in results["matches"]]
 
 
-def search_images(query_vector: list, top_k: int = 3, threshold: float = 0.85) -> list:
-    results = text_index.query(
+def search_images(query_vector: list, top_k: int = 5, threshold: float = 0.60) -> list:
+    results = index.query(
         vector=query_vector,
-        top_k=top_k * 4,
+        top_k=top_k * 3,
         include_metadata=True
     )
 
-    seen = set()
     images = []
-
     for match in results["matches"]:
         score = round(float(match["score"]), 3)
         if score < threshold:
             continue
         meta = match["metadata"]
-        image_id = meta.get("image_id")
-        if image_id and image_id not in seen:
-            seen.add(image_id)
-            images.append({
-                "image_id": image_id,
-                "image_url": meta["image_url"],
-                "description": meta["description"],
-                "tags": meta["tags"],
-                "score": score
-            })
+        images.append({
+            "image_id": meta.get("image_id", ""),
+            "image_url": meta.get("image_url", ""),
+            "description": meta.get("description", ""),
+            "notes": meta.get("notes", ""),
+            "score": score
+        })
 
     return images[:top_k]

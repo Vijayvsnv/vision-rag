@@ -37,7 +37,12 @@ async def save_from_url(url: str) -> tuple[str, str]:
         temp_path = TEMP_DIR / temp_filename
         temp_path.write_bytes(response.content)
 
-    result = cloudinary.uploader.upload(str(temp_path), folder="vision-rag")
+    result = cloudinary.uploader.upload(
+        str(temp_path),
+        folder="vision-rag",
+        quality="auto:best",
+        fetch_format="auto"
+    )
     cloudinary_url = result["secure_url"]
 
     return str(temp_path), cloudinary_url
@@ -53,7 +58,12 @@ async def save_from_upload(file: UploadFile) -> tuple[str, str]:
     temp_path = TEMP_DIR / temp_filename
     temp_path.write_bytes(await file.read())
 
-    result = cloudinary.uploader.upload(str(temp_path), folder="vision-rag")
+    result = cloudinary.uploader.upload(
+        str(temp_path),
+        folder="vision-rag",
+        quality="auto:best",
+        fetch_format="auto"
+    )
     cloudinary_url = result["secure_url"]
 
     return str(temp_path), cloudinary_url
