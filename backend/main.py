@@ -80,7 +80,8 @@ async def ingest(
         image_path, cloudinary_url = await save_from_upload(file)
 
     description = get_description(image_path)
-    vector = get_embedding(description)
+    embedding_text = f"{description}\n\nUser metadata: {notes}" if notes and notes.strip() else description
+    vector = get_embedding(embedding_text)
 
     image_id = str(uuid.uuid4())
     save_image_record(
@@ -112,20 +113,17 @@ async def ingest_batch(request: BatchIngestRequest):
         try:
             image_path, cloudinary_url = await save_from_url(item.image_url)
             description = get_description(image_path)
-            day = item.day or _extract_day(item.capture_time)
-            vector = get_embedding(description)
+            notes_parts = [p for p in [item.location, item.capture_time, item.camera_device] if p]
+            notes = ", ".join(notes_parts) if notes_parts else None
+            embedding_text = f"{description}\n\nUser metadata: {notes}" if notes else description
+            vector = get_embedding(embedding_text)
             image_id = str(uuid.uuid4())
             save_image_record(
                 image_id=image_id,
                 image_url=cloudinary_url,
                 description=description,
                 vector=vector,
-                location=item.location,
-                capture_time=item.capture_time,
-                day=day,
-                camera_device=item.camera_device,
-                latitude=item.latitude,
-                longitude=item.longitude,
+                notes=notes,
             )
             results.append({
                 "success": True,
