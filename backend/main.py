@@ -79,7 +79,7 @@ async def ingest(
     else:
         image_path, cloudinary_url = await save_from_upload(file)
 
-    description = get_description(image_path)
+    description = get_description(image_path, notes=notes)
     embedding_text = f"{description}\n\nUser metadata: {notes}" if notes and notes.strip() else description
     vector = get_embedding(embedding_text)
 
