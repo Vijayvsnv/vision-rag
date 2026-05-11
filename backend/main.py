@@ -175,6 +175,7 @@ async def chat(request: ChatRequest):
                 "Keep answers short, direct, and to the point. "
                 "STRICT RULE: Never use general knowledge. Only answer based on what you actually see in the provided image. "
                 "STRICT RULE: If you cannot count or see something clearly in the image, say exactly that — do NOT guess or use knowledge (e.g. do not say '50 stars' from memory, say 'I can see X stars clearly but cannot count all'). "
+                "STRICT RULE: When asked about any visible characteristic of a person or object in the image — skin tone, hair color, lip color, eye color, clothing, accessories, build, or any physical detail — describe it objectively and directly based on what you see. Never refuse to describe visible physical attributes. "
                 "If no image is provided, say: 'No matching image found in database.'"
             )
         }
