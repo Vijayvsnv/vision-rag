@@ -311,11 +311,7 @@ function UploadModal({ onClose, onUpload, uploading, lastResult }) {
   )
 }
 
-const SUGGESTIONS = [
-  { text: 'Show me all images', icon: '🖼️' },
-  { text: 'Find a portrait photo', icon: '👤' },
-  { text: 'What images do you have?', icon: '🔍' },
-]
+const SUGGESTIONS = []
 
 export default function App() {
   const [messages, setMessages] = useState([{
@@ -478,16 +474,14 @@ export default function App() {
           borderBottom: '1px solid var(--border)', background: '#fff'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 34, height: 34, borderRadius: 10, background: '#6366f1',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 16, color: '#fff', boxShadow: '0 2px 8px rgba(99,102,241,0.35)'
-            }}>✦</div>
+            <img src="/logo.jpeg" alt="CIVA Logo" style={{
+              width: 34, height: 34, objectFit: 'contain', borderRadius: 8
+            }} />
             <div>
               <div style={{ fontWeight: 700, fontSize: 15, color: '#1e2132', letterSpacing: '-0.2px' }}>CIVA Warehouse Copilot</div>
-              <div style={{ fontSize: 11, color: '#9ca3af' }}>{imageCount} image{imageCount !== 1 ? 's' : ''} in knowledge base</div>
             </div>
           </div>
+          {/* Add Image button — temporarily hidden, re-enable when needed
           <button onClick={() => { setLastResult(null); setShowUploadModal(true) }} style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '8px 18px', borderRadius: 10,
@@ -500,18 +494,16 @@ export default function App() {
           >
             <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> Add Image
           </button>
+          */}
         </div>
 
         {/* Messages */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
           {isEmpty && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 60, gap: 10 }}>
-              <div style={{
-                width: 56, height: 56, borderRadius: 18, background: '#6366f1',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 26, color: '#fff', boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
-                marginBottom: 6
-              }}>✦</div>
+              <img src="/logo.jpeg" alt="CIVA Logo" style={{
+                width: 80, height: 80, objectFit: 'contain', marginBottom: 6
+              }} />
               <div style={{ fontSize: 26, fontWeight: 700, color: '#1e2132', letterSpacing: '-0.5px' }}>How can I help?</div>
               <div style={{ fontSize: 14, color: '#9ca3af' }}>Search your visual knowledge base</div>
             </div>
@@ -575,6 +567,38 @@ export default function App() {
           </button>
         </div>
       </main>
+
+      {/* Locked Image Sidebar */}
+      {activeImage && (
+        <div style={{
+          position: 'fixed', left: 'calc(50% + 430px)', right: 0, top: 0,
+          background: '#fff', borderLeft: '1px solid var(--border)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          padding: 16, gap: 12, height: '100vh', zIndex: 100
+        }}>
+          <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #e8eaf2', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', width: '100%' }}>
+            <img
+              src={activeImage.image_url}
+              alt=""
+              style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }}
+            />
+          </div>
+          <button
+            onClick={() => setActiveImage(null)}
+            style={{
+              width: '100%', padding: '11px', borderRadius: 10,
+              border: 'none', background: '#6366f1',
+              color: '#fff', fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', transition: 'all 0.2s',
+              boxShadow: '0 4px 12px rgba(99,102,241,0.35)'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#4f46e5' }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#6366f1' }}
+          >
+            Unlock
+          </button>
+        </div>
+      )}
 
       {showUploadModal && (
         <UploadModal
