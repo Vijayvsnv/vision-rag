@@ -222,13 +222,23 @@ async def chat(request: ChatRequest):
     # Send only the top 1 match to GPT-4o to avoid confusion
     top_image = matched_images[:1]
 
-    # Current user turn: attach matched image as vision input
+    # Current user turn: attach matched image + WAMS report text as vision input
     content = []
     for img in top_image:
         if img["image_url"].startswith("http"):
             content.append({
                 "type": "image_url",
                 "image_url": {"url": img["image_url"]}
+            })
+        report_parts = []
+        if img.get("description"):
+            report_parts.append(img["description"])
+        if img.get("notes"):
+            report_parts.append(f"Metadata: {img['notes']}")
+        if report_parts:
+            content.append({
+                "type": "text",
+                "text": "[WAMS REPORT]\n" + "\n\n".join(report_parts)
             })
 
     content.append({"type": "text", "text": request.message})
