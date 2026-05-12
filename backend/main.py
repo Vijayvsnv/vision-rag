@@ -154,9 +154,15 @@ async def chat(request: ChatRequest):
         matched_images = [request.active_image]
         print(f"[CHAT] Using active_image: {request.active_image.get('image_id', '')[:20]}")
     else:
-        matched_images = search_images(query_vector, top_k=3, threshold=0.35)
+        all_matches = search_images(query_vector, top_k=3, threshold=0.50)
         if request.excluded_ids:
-            matched_images = [img for img in matched_images if img["image_id"] not in request.excluded_ids]
+            all_matches = [img for img in all_matches if img["image_id"] not in request.excluded_ids]
+        if all_matches:
+            matched_images = [all_matches[0]]
+        else:
+            matched_images = search_images(query_vector, top_k=3, threshold=0.35)
+            if request.excluded_ids:
+                matched_images = [img for img in matched_images if img["image_id"] not in request.excluded_ids]
         print(f"[CHAT] query='{request.message[:60]}' | matched={len(matched_images)} | excluded={len(request.excluded_ids)}")
         for img in matched_images:
             print(f"  score={img['score']} | desc={img['description'][:80]}")
