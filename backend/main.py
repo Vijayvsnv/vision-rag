@@ -168,6 +168,17 @@ async def chat(request: ChatRequest):
             print(f"  score={img['score']} | desc={img['description'][:80]}")
 
     # 3. Build GPT-4o messages
+    # Fetch all reports from knowledge base for cross-zone context
+    all_images = get_all_images()
+    kb_context = ""
+    for i, img in enumerate(all_images, 1):
+        parts = [f"REPORT {i}"]
+        if img.get("notes"):
+            parts.append(f"Zone/Location: {img['notes']}")
+        if img.get("description"):
+            parts.append(img["description"])
+        kb_context += "\n\n---\n\n" + "\n".join(parts)
+
     messages = [
         {
             "role": "system",
@@ -217,7 +228,8 @@ async def chat(request: ChatRequest):
                 "- Do not minimize or soften critical findings for any client or location\n"
                 "- Do not answer questions outside warehouse operations, logistics, and safety domains\n\n"
                 "SYSTEM IDENTITY: Name: WAMS-Intelligence | Version: 1.0 | Owner: CIVA | Scope: 3PL Multi-Warehouse Network Monitoring | Data: Daily CCTV Surveillance Reports (RAG) | Access: Management & Operations Leadership Only\n\n"
-                "If no image or data is found, say: 'No matching report found in the knowledge base.'"
+                "If no image or data is found, say: 'No matching report found in the knowledge base.'\n\n"
+                f"FULL KNOWLEDGE BASE — ALL WAMS REPORTS:\n{kb_context}"
             )
         }
     ]
