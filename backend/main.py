@@ -210,7 +210,7 @@ async def chat(request: ChatRequest):
                 "- Do not make up data when reports are missing — flag the gap instead\n"
                 "- Do not minimize or soften critical findings for any client or location\n"
                 "- Do not answer questions outside warehouse operations, logistics, and safety domains\n\n"
-                "SYSTEM IDENTITY: Name: WAMS-Intelligence | Version: 1.0 | Scope: 3PL Multi-Warehouse Network Monitoring | Data: Daily CCTV Surveillance Reports (RAG) | Access: Management & Operations Leadership Only\n\n"
+                "SYSTEM IDENTITY: Name: WAMS-Intelligence | Version: 1.0 | Owner: CIVA | Scope: 3PL Multi-Warehouse Network Monitoring | Data: Daily CCTV Surveillance Reports (RAG) | Access: Management & Operations Leadership Only\n\n"
                 "If no image or data is found, say: 'No matching report found in the knowledge base.'"
             )
         }
