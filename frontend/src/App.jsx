@@ -484,7 +484,7 @@ export default function App() {
               fontSize: 16, color: '#fff', boxShadow: '0 2px 8px rgba(99,102,241,0.35)'
             }}>✦</div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 15, color: '#1e2132', letterSpacing: '-0.2px' }}>VisionRAG</div>
+              <div style={{ fontWeight: 700, fontSize: 15, color: '#1e2132', letterSpacing: '-0.2px' }}>CIVA Warehouse Copilot</div>
               <div style={{ fontSize: 11, color: '#9ca3af' }}>{imageCount} image{imageCount !== 1 ? 's' : ''} in knowledge base</div>
             </div>
           </div>
